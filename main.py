@@ -1,20 +1,5 @@
-"""
-import pandas as pd 
-
-df = pd.read_csv("data/pre-owned cars.csv")
-print(df.head())
-
-print(df.head())
-
-print("Dataset shape :" , df.shape)
-
-print("column names :")
-print(df.columns.tolist())
-
-print(df.info())
-"""
-
 import pandas as pd
+import numpy as np
 
 # Load dataset
 df = pd.read_csv("data/pre-owned cars.csv")
@@ -42,13 +27,13 @@ print("\nFirst 5 rows:")
 print(df.head())
 
 df_clean = df.copy()
-print("Original dataset shape" , df_clean.shape)
+print("Original dataset shape", df_clean.shape)
 df_clean = df_clean.drop_duplicates()
 
 print("\nDataset shape before cleaning:")
 print(df_clean.isnull().sum())
 
-df_clean = df_clean.dropna(subset=["brand" , "model"])
+df_clean = df_clean.dropna(subset=["brand", "model"])
 
 df_clean["engine_capacity(CC)"] = df_clean["engine_capacity(CC)"].fillna(
     df_clean["engine_capacity(CC)"].median()
@@ -67,7 +52,6 @@ print("\nMake year and reg year info:")
 print(df_clean[["make_year", "reg_year"]].describe())
 
 
-
 # Check invalid prices
 invalid_prices = df_clean[df_clean["price"] <= 0]
 print("Invalid prices:", len(invalid_prices))
@@ -84,23 +68,33 @@ invalid_mileage = df_clean[df_clean["km_driven"] < 0]
 print("Invalid mileage:", len(invalid_mileage))
 
 # Check invalid engine capacity
-invalid_engine = df_clean[
-    df_clean["engine_capacity(CC)"] <= 0
-]
+invalid_engine = df_clean[df_clean["engine_capacity(CC)"] <= 0]
 print("Invalid engine capacity:", len(invalid_engine))
 
 
-#  Save cleaned data
+# Fill missing reg_year
+rng = np.random.default_rng(42)
 
-df_clean.to_csv(
-"data/used_cars_cleaned.csv",
-index=False
+mask = df_clean["reg_year"].isna()
+n = mask.sum()
+
+offset = rng.choice([0, 1], size=n, p=[0.91, 0.09])
+years = (df_clean.loc[mask, "make_year"].astype(int) + offset).clip(upper=2026)
+months = rng.integers(1, 13, size=n)
+
+df_clean.loc[mask, "reg_year"] = (
+    "1/" + pd.Series(months, index=years.index).astype(str) + "/" + years.astype(str)
 )
+
+print("\nreg_year missing after imputation:", df_clean["reg_year"].isna().sum())
+
+
+# Save cleaned data
+df_clean.to_csv("data/used_cars_cleaned.csv", index=False)
 
 print("\nCleaned data saved successfully!")
 
 # Check the cleaned CSV file
-
 df_check = pd.read_csv("data/used_cars_cleaned.csv")
 
 # Show first 5 rows
@@ -113,3 +107,11 @@ print(df_check.shape)
 # Check missing values
 print("\nMissing values:")
 print(df_check.isnull().sum())
+
+df_clean.to_csv("data/used_cars_cleaned.csv", index=False)
+
+if df_check.isnull().sum().sum() == 0:
+    print("All missing values are zero")
+else:
+    print("There are still missing values")
+    print(df_check.isnull().sum()[df_check.isnull().sum() > 0])
